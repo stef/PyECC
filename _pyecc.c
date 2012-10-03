@@ -269,6 +269,118 @@ static PyObject *py_keygen(PyObject *self, PyObject *args, PyObject *kwargs)
     return rc;
 }
 
+const char* DHErrors[] = { "Unknown Error",
+                           "Out of secure memory",
+                           "Invalid key (wrong length)",
+                           "Invalid key\n"
+};
+
+static char dh1_doc[] = "\
+Initiates a DH request, takes the curve \
+as a parameter. Should return \
+a tuple (public part, exp) or None\n\
+";
+static PyObject *py_dh1(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *curve, *temp_curve;
+    unsigned int curvelen;
+
+    if (!PyArg_ParseTuple(args, "s#", &temp_curve, &curvelen ))
+        return NULL;
+
+    /*
+     * Copying into a separate buffer lest Python deallocate our
+     * string out from under us
+     */
+    curve = (char *)(malloc(sizeof(char) * curvelen + 1));
+    memcpy(curve, temp_curve, curvelen + 1);
+
+    ECC_DHState dhstate = ecc_dh1(curve);
+    if(!dhstate) {
+      PyErr_SetString(PyExc_RuntimeError,DHErrors[errno]);
+      return NULL;
+    }
+
+    return Py_BuildValue("ss",
+                         (const char *)(dhstate->public),
+                         (const char *)(dhstate->exp)
+                         );
+}
+
+static char dh2_doc[] = "\
+Responds to a DH request, takes the public part from dh1 and \
+the curve as a parameter being passed in. Should return \
+a tuple (public part , key, verification) or None\n\
+";
+static PyObject *py_dh2(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *curve, *keyB, *temp_curve, *temp_keyB;
+    unsigned int curvelen, keyBlen;
+
+    if (!PyArg_ParseTuple(args, "s#s#", &temp_keyB, &keyBlen, &temp_curve, &curvelen ))
+        return NULL;
+
+    /*
+     * Copying into a separate buffer lest Python deallocate our
+     * string out from under us
+     */
+    curve = (char *)(malloc(sizeof(char) * curvelen + 1));
+    memcpy(curve, temp_curve, curvelen + 1);
+    keyB = (char *)(malloc(sizeof(char) * keyBlen + 1));
+    memcpy(keyB, temp_keyB, keyBlen + 1);
+
+    ECC_DHKey dhkey = ecc_dh2(keyB, curve);
+    if(!dhkey) {
+      PyErr_SetString(PyExc_RuntimeError,DHErrors[errno]);
+      return NULL;
+    }
+
+    return Py_BuildValue("sss",
+                         (const char *)(dhkey->public),
+                         (const char *)(dhkey->key),
+                         (const char *)(dhkey->verification)
+                         );
+}
+
+static char dh3_doc[] = "\
+Finishes a DH request, takes the public share, the exp from dh1 and \
+the curve as a parameter being passed in. Should return a tuple \
+(key, verification) or None\n\
+";
+static PyObject *py_dh3(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *curve, *keyB, *exp, *temp_exp, *temp_curve, *temp_keyB;
+    unsigned int curvelen, keyBlen, explen;
+
+    if (!PyArg_ParseTuple(args, "s#s#s#",
+                          &temp_keyB, &keyBlen,
+                          &temp_exp, &explen,
+                          &temp_curve, &curvelen ))
+        return NULL;
+
+    /*
+     * Copying into a separate buffer lest Python deallocate our
+     * string out from under us
+     */
+    curve = (char *)(malloc(sizeof(char) * curvelen + 1));
+    memcpy(curve, temp_curve, curvelen + 1);
+    keyB = (char *)(malloc(sizeof(char) * keyBlen + 1));
+    memcpy(keyB, temp_keyB, keyBlen + 1);
+    exp = (char *)(malloc(sizeof(char) * explen + 1));
+    memcpy(exp, temp_exp, explen + 1);
+
+    ECC_DHKey dhkey = ecc_dh3(keyB, exp, curve);
+    if(!dhkey) {
+      PyErr_SetString(PyExc_RuntimeError,DHErrors[errno]);
+      return NULL;
+    }
+
+    return Py_BuildValue("sss",
+                         (const char *)(dhkey->public),
+                         (const char *)(dhkey->key),
+                         (const char *)(dhkey->verification)
+                         );
+}
 
 static struct PyMethodDef _pyecc_methods[] = {
     {"new_state", (PyCFunction)py_new_state, METH_NOARGS, new_state_doc},
@@ -278,6 +390,9 @@ static struct PyMethodDef _pyecc_methods[] = {
     {"encrypt", (PyCFunction)py_encrypt, METH_VARARGS, encrypt_doc},
     {"decrypt", (PyCFunction)py_decrypt, METH_VARARGS, decrypt_doc},
     {"keygen", (PyCFunction)(py_keygen), METH_NOARGS, keygen_doc},
+    {"dh1", (PyCFunction)(py_dh1), METH_VARARGS, dh1_doc},
+    {"dh2", (PyCFunction)(py_dh2), METH_VARARGS, dh2_doc},
+    {"dh3", (PyCFunction)(py_dh3), METH_VARARGS, dh3_doc},
     {NULL}
 };
 

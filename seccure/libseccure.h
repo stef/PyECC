@@ -76,6 +76,21 @@ struct _ECC_State {
 };
 typedef struct _ECC_State* ECC_State;
 
+/**
+ * ::ECC_State is a bag of useful bits for maintaining cross-function state
+ */
+struct _ECC_DHState {
+  char* exp;
+  char* public;
+};
+typedef struct _ECC_DHState* ECC_DHState;
+
+struct _ECC_DHKey {
+  char* public;
+  char* key;
+  char* verification;
+};
+typedef struct _ECC_DHKey* ECC_DHKey;
 
 /**
  * Allocate an empty ::ECC_KeyPair 
@@ -190,5 +205,9 @@ ECC_Data ecc_sign(char *data, ECC_KeyPair keypair, ECC_State state);
  * @param state ::ECC_State object
  */
 bool ecc_verify(char *data, char *signature, ECC_KeyPair keypair, ECC_State state);
+
+ECC_DHState ecc_dh1(char *curve);
+ECC_DHKey ecc_dh2(char *keyB, char *curve);
+ECC_DHKey ecc_dh3(char *keyB, char* _exp, char *curve);
 
 #endif

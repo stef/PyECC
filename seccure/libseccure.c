@@ -764,3 +764,227 @@ char *ecc_serialize_private_key(ECC_KeyPair kp, ECC_State state)
 	buf[state->curveparams->pk_len_compact] = '\0';
 	return buf;
 }
+
+ECC_DHState ecc_dh1(char* curve)
+{
+  struct curve_params *cp;
+  struct affine_point A;
+  gcry_mpi_t exp;
+  ECC_DHState dhstate = (ECC_DHState)(malloc(sizeof(struct _ECC_DHState)));
+
+  if (!(cp = curve_by_name(curve))) return NULL;
+
+  exp = DH_step1(&A, cp);
+  if (! (dhstate->public = gcry_malloc_secure(cp->pk_len_compact + 1))) {
+    errno=1;
+    gcry_free(dhstate);
+    goto exit;
+  }
+  compress_to_string(dhstate->public, DF_COMPACT, &A, cp);
+  point_release(&A);
+  dhstate->public[cp->pk_len_compact] = 0;
+
+  if (! (dhstate->exp = gcry_malloc_secure(cp->pk_len_compact + 1))) {
+    errno=1;
+    gcry_free(dhstate->public);
+    gcry_free(dhstate);
+    dhstate=NULL;
+    goto exit1;
+  }
+  serialize_mpi(dhstate->exp, cp->pk_len_compact, DF_COMPACT, exp);
+
+ exit1:
+  gcry_mpi_release(exp);
+ exit:
+  curve_release(cp);
+
+  return dhstate;
+}
+
+ECC_DHKey ecc_dh2(char* keyB, char* curve)
+{
+  struct curve_params *cp;
+  struct affine_point A, B;
+  char *keybuf;
+  gcry_mpi_t exp, h;
+  ECC_DHKey dhkey = (ECC_DHKey)(malloc(sizeof(struct _ECC_DHKey)));
+
+  if (!(cp = curve_by_name(curve))) {
+    gcry_free(dhkey);
+    return NULL;
+  }
+
+  exp = DH_step1(&A, cp);
+  if (! (dhkey->public = gcry_malloc_secure(cp->pk_len_compact + 1))) {
+    errno=1;
+    point_release(&A);
+    gcry_free(dhkey);
+    dhkey=NULL;
+    goto exit;
+  }
+  compress_to_string(dhkey->public, DF_COMPACT, &A, cp);
+  point_release(&A);
+  dhkey->public[cp->pk_len_compact] = 0;
+
+  if (strlen(keyB) != cp->pk_len_compact) {
+    errno=2;
+    goto exit1;
+  }
+
+  if (!decompress_from_string(&B, keyB, DF_COMPACT, cp)) {
+    errno=3;
+    goto exit1;
+  }
+
+  if (! (keybuf = gcry_malloc_secure(64))) {
+    errno=1;
+    goto exit1;
+  }
+
+  if (! DH_step2(keybuf, &B, exp, cp)) {
+    errno=3;
+    goto exit2;
+  }
+  point_release(&B);
+
+  if(cp->dh_len_bin > 32) {
+    goto exit2;
+  }
+
+  if (! (dhkey->key = gcry_malloc_secure(cp->dh_len_compact + 1))) {
+    errno=1;
+    goto exit2;
+  }
+
+  if(!deserialize_mpi(&h, DF_BIN, keybuf, cp->dh_len_bin)) {
+    goto exit3;
+  }
+  serialize_mpi(dhkey->key, cp->dh_len_compact, DF_COMPACT, h);
+  dhkey->key[cp->dh_len_compact] = 0;
+  gcry_mpi_release(h);
+
+  if (! (dhkey->verification = gcry_malloc_secure(cp->dh_len_compact + 1))) {
+    errno=1;
+    goto exit3;
+  }
+
+  if(! deserialize_mpi(&h, DF_BIN, keybuf + 32, cp->dh_len_bin)) {
+    goto exit4;
+  }
+  serialize_mpi(dhkey->verification, cp->dh_len_compact, DF_COMPACT, h);
+  dhkey->verification[cp->dh_len_compact] = 0;
+
+  gcry_mpi_release(h);
+  gcry_free(keybuf);
+  goto exit;
+
+ exit4:
+  gcry_free(dhkey->verification);
+ exit3:
+  gcry_free(dhkey->key);
+ exit2:
+  gcry_free(keybuf);
+ exit1:
+  gcry_free(dhkey->public);
+  gcry_free(dhkey);
+  dhkey=NULL;
+ exit:
+
+  gcry_mpi_release(exp);
+  curve_release(cp);
+
+  return dhkey;
+}
+
+ECC_DHKey ecc_dh3(char* keyB, char* _exp, char* curve)
+{
+  struct curve_params *cp;
+  struct affine_point B;
+  char *keybuf;
+  gcry_mpi_t exp, h;
+  ECC_DHKey dhkey = (ECC_DHKey)(malloc(sizeof(struct _ECC_DHKey)));
+
+  if (!(cp = curve_by_name(curve))) {
+    gcry_free(dhkey);
+    return NULL;
+  }
+
+  if (strlen(keyB) != cp->pk_len_compact) {
+    errno=2;
+    goto exit1;
+  }
+  if (strlen(_exp) != cp->pk_len_compact) {
+    errno=2;
+    goto exit1;
+  }
+
+  if (!decompress_from_string(&B, keyB, DF_COMPACT, cp)) {
+    errno=3;
+    goto exit1;
+  }
+  if(! deserialize_mpi(&exp, DF_COMPACT, _exp, cp->pk_len_compact)) goto exit2;
+
+  if (! (keybuf = gcry_malloc_secure(64))) {
+    errno=1;
+    goto exit3;
+  }
+
+  if (! DH_step2(keybuf, &B, exp, cp)) {
+    errno=3;
+    goto exit4;
+  }
+
+  if(cp->dh_len_bin > 32) {
+    goto exit4;
+  }
+
+  if (! (dhkey->key = gcry_malloc_secure(cp->dh_len_compact + 1))) {
+    errno=1;
+    goto exit4;
+  }
+
+  if(!deserialize_mpi(&h, DF_BIN, keybuf, cp->dh_len_bin)) {
+    goto exit5;
+  }
+  serialize_mpi(dhkey->key, cp->dh_len_compact, DF_COMPACT, h);
+  dhkey->key[cp->dh_len_compact] = 0;
+  gcry_mpi_release(h);
+
+  if (! (dhkey->verification = gcry_malloc_secure(cp->dh_len_compact + 1))) {
+    errno=1;
+    goto exit5;
+  }
+
+  if(! deserialize_mpi(&h, DF_BIN, keybuf + 32, cp->dh_len_bin)) {
+    goto exit6;
+  }
+  serialize_mpi(dhkey->verification, cp->dh_len_compact, DF_COMPACT, h);
+  dhkey->verification[cp->dh_len_compact] = 0;
+
+  dhkey->public=NULL;
+
+  gcry_mpi_release(h);
+
+  gcry_free(keybuf);
+  point_release(&B);
+  goto exit;
+
+ exit6:
+  gcry_free(dhkey->verification);
+ exit5:
+  gcry_free(dhkey->key);
+ exit4:
+  gcry_free(keybuf);
+ exit3:
+  gcry_mpi_release(exp);
+ exit2:
+  point_release(&B);
+ exit1:
+  gcry_free(dhkey);
+  dhkey=NULL;
+ exit:
+
+  curve_release(cp);
+
+  return dhkey;
+}
