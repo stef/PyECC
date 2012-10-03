@@ -375,8 +375,7 @@ static PyObject *py_dh3(PyObject *self, PyObject *args, PyObject *kwargs)
       return NULL;
     }
 
-    return Py_BuildValue("sss",
-                         (const char *)(dhkey->public),
+    return Py_BuildValue("ss",
                          (const char *)(dhkey->key),
                          (const char *)(dhkey->verification)
                          );
