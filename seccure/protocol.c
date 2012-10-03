@@ -353,7 +353,12 @@ gcry_mpi_t DH_step1(struct affine_point *A, const struct curve_params *cp)
   return a;
 }
 
-int DH_step2(char *key, const struct affine_point *B, const gcry_mpi_t exp, 
+struct affine_point DH_stepn(struct affine_point *A, gcry_mpi_t a, const struct curve_params *cp)
+{
+  return pointmul(A, a, &cp->dp);
+}
+
+int DH_step2(char *key, const struct affine_point *B, const gcry_mpi_t exp,
 	     const struct curve_params *cp)
 {
   struct affine_point P;

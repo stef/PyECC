@@ -68,6 +68,7 @@ int ECIES_decryption(char *key, const struct affine_point *R,
 		     const gcry_mpi_t d, const struct curve_params *cp);
 
 gcry_mpi_t DH_step1(struct affine_point *A, const struct curve_params *cp);
+struct affine_point DH_stepn(struct affine_point *A, gcry_mpi_t a, const struct curve_params *cp);
 int DH_step2(char *key, const struct affine_point *B, const gcry_mpi_t exp, 
 	     const struct curve_params *cp);
 

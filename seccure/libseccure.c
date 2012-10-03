@@ -896,6 +896,56 @@ ECC_DHKey ecc_dh2(char* keyB, char* curve)
   return dhkey;
 }
 
+const char* ecc_dhn(char* keyB, char* _exp, char* curve)
+{
+  struct curve_params *cp = NULL;
+  struct affine_point B;
+  char *keybuf = NULL;
+  gcry_mpi_t exp;
+
+  if (!(cp = curve_by_name(curve))) {
+    goto exit;
+  }
+
+  if (strlen(keyB) != cp->pk_len_compact) {
+    errno=2;
+    goto exit0;
+  }
+  if (strlen(_exp) != cp->pk_len_compact) {
+    errno=2;
+    goto exit0;
+  }
+
+  if (!decompress_from_string(&B, keyB, DF_COMPACT, cp)) {
+    errno=3;
+    goto exit0;
+  }
+
+  if(!deserialize_mpi(&exp, DF_COMPACT, _exp, cp->pk_len_compact)) {
+    goto exit1;
+  }
+
+  if (! (keybuf = gcry_malloc_secure(cp->pk_len_compact + 1))) {
+    errno=1;
+    goto exit2;
+  }
+
+  struct affine_point R = DH_stepn(&B, exp, cp);
+
+  compress_to_string(keybuf, DF_COMPACT, &R, cp);
+  point_release(&R);
+  keybuf[cp->pk_len_compact] = 0;
+
+ exit2:
+  gcry_mpi_release(exp);
+ exit1:
+  point_release(&B);
+ exit0:
+  curve_release(cp);
+ exit:
+  return keybuf;
+}
+
 ECC_DHKey ecc_dh3(char* keyB, char* _exp, char* curve)
 {
   struct curve_params *cp;
@@ -922,7 +972,9 @@ ECC_DHKey ecc_dh3(char* keyB, char* _exp, char* curve)
     errno=3;
     goto exit1;
   }
-  if(! deserialize_mpi(&exp, DF_COMPACT, _exp, cp->pk_len_compact)) goto exit2;
+  if(! deserialize_mpi(&exp, DF_COMPACT, _exp, cp->pk_len_compact)) {
+    goto exit2;
+  }
 
   if (! (keybuf = gcry_malloc_secure(64))) {
     errno=1;

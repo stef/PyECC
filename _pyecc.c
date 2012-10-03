@@ -342,6 +342,42 @@ static PyObject *py_dh2(PyObject *self, PyObject *args, PyObject *kwargs)
                          );
 }
 
+static char dhn_doc[] = "\
+Interim multiparty DH request, takes a public, the exp from dh1 and \
+the curve as a parameter being passed in. Should return a new public\n";
+static PyObject *py_dhn(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *curve, *keyB, *exp, *temp_exp, *temp_curve, *temp_keyB;
+    unsigned int curvelen, keyBlen, explen;
+
+    if (!PyArg_ParseTuple(args, "s#s#s#",
+                          &temp_keyB, &keyBlen,
+                          &temp_exp, &explen,
+                          &temp_curve, &curvelen ))
+        return NULL;
+
+    /*
+     * Copying into a separate buffer lest Python deallocate our
+     * string out from under us
+     */
+    curve = (char *)(malloc(sizeof(char) * curvelen + 1));
+    memcpy(curve, temp_curve, curvelen + 1);
+    keyB = (char *)(malloc(sizeof(char) * keyBlen + 1));
+    memcpy(keyB, temp_keyB, keyBlen + 1);
+    exp = (char *)(malloc(sizeof(char) * explen + 1));
+    memcpy(exp, temp_exp, explen + 1);
+
+    const char* public = ecc_dhn(keyB, exp, curve);
+    if(!public) {
+      PyErr_SetString(PyExc_RuntimeError,DHErrors[errno]);
+      return NULL;
+    }
+
+    return PyString_FromString(public);
+    //return Py_BuildValue("s",
+    //                     (const char *)(Public),
+    //                     );
+}
 static char dh3_doc[] = "\
 Finishes a DH request, takes the public share, the exp from dh1 and \
 the curve as a parameter being passed in. Should return a tuple \
@@ -391,6 +427,7 @@ static struct PyMethodDef _pyecc_methods[] = {
     {"keygen", (PyCFunction)(py_keygen), METH_NOARGS, keygen_doc},
     {"dh1", (PyCFunction)(py_dh1), METH_VARARGS, dh1_doc},
     {"dh2", (PyCFunction)(py_dh2), METH_VARARGS, dh2_doc},
+    {"dhn", (PyCFunction)(py_dhn), METH_VARARGS, dh3_doc},
     {"dh3", (PyCFunction)(py_dh3), METH_VARARGS, dh3_doc},
     {NULL}
 };

@@ -208,6 +208,7 @@ bool ecc_verify(char *data, char *signature, ECC_KeyPair keypair, ECC_State stat
 
 ECC_DHState ecc_dh1(char *curve);
 ECC_DHKey ecc_dh2(char *keyB, char *curve);
+const char* ecc_dhn(char* keyB, char* _exp, char* curve);
 ECC_DHKey ecc_dh3(char *keyB, char* _exp, char *curve);
 
 #endif
