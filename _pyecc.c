@@ -356,10 +356,6 @@ static PyObject *py_dhn(PyObject *self, PyObject *args, PyObject *kwargs)
                           &temp_curve, &curvelen ))
         return NULL;
 
-    /*
-     * Copying into a separate buffer lest Python deallocate our
-     * string out from under us
-     */
     curve = (char *)(malloc(sizeof(char) * curvelen + 1));
     memcpy(curve, temp_curve, curvelen + 1);
     keyB = (char *)(malloc(sizeof(char) * keyBlen + 1));
@@ -374,9 +370,6 @@ static PyObject *py_dhn(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     return PyString_FromString(public);
-    //return Py_BuildValue("s",
-    //                     (const char *)(Public),
-    //                     );
 }
 static char dh3_doc[] = "\
 Finishes a DH request, takes the public share, the exp from dh1 and \
