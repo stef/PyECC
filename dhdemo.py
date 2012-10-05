@@ -50,20 +50,71 @@ def _3user():
     key, verification = _pyecc.dh3(pAB, eC, u'p521')
     print "key:    \t%s\nverification:\t%s" % (key, verification)
 
-print '-' * 90
-print ' '*30, '2 user DH test'
-print
-_2user()
+def test():
+    print '-' * 90
+    print ' '*30, '2 user DH test'
+    print
+    _2user()
 
-print '-' * 90
-print ' '*30, '3 user DH test'
-print
-_3user()
+    print '-' * 90
+    print ' '*30, 'error handling'
+    print
+    try: wrongkey()
+    except: print traceback.format_exc()
+    try: shortkey()
+    except: print traceback.format_exc()
 
-print '-' * 90
-print ' '*30, 'error handling'
-print
-try: wrongkey()
-except: print traceback.format_exc()
-try: shortkey()
-except: print traceback.format_exc()
+    print '-' * 90
+    print ' '*30, '3 user DH test'
+    print
+    _3user()
+
+    print '-' * 90
+    print ' '*30, 'multi-party ECDH'
+    print
+    mpecdh()
+
+class ECDH:
+    def __init__(self, curve="p521"):
+        self.curve=curve
+        self.key=None
+        self.verify=None
+        self.public, self.exp = _pyecc.dh1(curve)
+
+    def MPDH(self, point, i, us, other):
+        #print peers.index(self), i, us, other
+        if not other:
+            self.finish(point)
+        elif i<len(us):
+            us[i].MPDH(self.addpeer(point), i+1, us, other)
+        else:
+            half1=other[:len(other)/2]
+            half2=other[len(other)/2:]
+            p=self.addpeer(point)
+            if half1: half1[0].MPDH(p, 1, half1, half2 )
+            if half2: half2[0].MPDH(p, 1, half2, half1 )
+
+    def addpeer(self, point):
+        return _pyecc.dhn(point, self.exp, self.curve)
+
+    def finish(self,point):
+        self.key, self.verify=_pyecc.dh3(point, self.exp, self.curve)
+        return (self.key, self.verify)
+
+    def __repr__(self):
+        return str(peers.index(self))
+
+    def __str__(self):
+        return str((self.key,self.verify))
+
+def mpecdh():
+    peers=[ECDH() for _ in range(9)]
+    half1=peers[:len(peers)/2]
+    half2=peers[len(peers)/2:]
+    half1[1].MPDH(half1[0].public, 2, half1, half2)
+    half2[1].MPDH(half2[0].public, 2, half2, half1)
+    print '\n'.join(map(str,peers))
+
+print "-" * 80
+test()
+
