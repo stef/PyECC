@@ -16,8 +16,8 @@ install the PyECC module and corresponding library, you need to run::
 Author(s)
 ---------
 
-DH support was added by Stefan Marsiske (``s@ctrlc.hu``)
 PyECC was developed by R. Tyler Ballance (``tyler@slide.com``) at `Slide, Inc. <http://slide.com>`_. 
+DH support was added by Stefan Marsiske (``s@ctrlc.hu``).
 The original seccure(1) binary however was developed by B. Poettering.
 
 Why Forked?
