@@ -16,5 +16,11 @@ install the PyECC module and corresponding library, you need to run::
 Author(s)
 ---------
 
+DH support was added by Stefan Marsiske (``s@ctrlc.hu``)
 PyECC was developed by R. Tyler Ballance (``tyler@slide.com``) at `Slide, Inc. <http://slide.com>`_. 
 The original seccure(1) binary however was developed by B. Poettering.
+
+Why Forked?
+-----------
+
+This is a fork of the original PyECC, with added Diffie-Hellman Bindings. See the dhdemo.py for usage examples.
